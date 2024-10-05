@@ -26,4 +26,4 @@ The **HR Data Analytics** project aims to provide insights into employee data us
 2. Set up the Oracle Database in Docker.
 3. Install required Python packages:
 ```bash
-pip install -r requirements.txt
+   pip install -r requirements.txt
