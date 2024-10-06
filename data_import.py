@@ -20,65 +20,89 @@ dsn = cx_Oracle.makedsn(db_host, db_port, service_name=db_service_name)
 connection = cx_Oracle.connect(user=db_user, password=db_password, dsn=dsn)
 cursor = connection.cursor()
 
-# Wczytaj dane z CSV do DataFrame
-df = pd.read_csv("employees.csv")
+# 1. Wczytaj dane z plików CSV do DataFrame
+df_employees = pd.read_csv("employees.csv", encoding="ISO-8859-1")
+df_departments = pd.read_csv("departments.csv", encoding="ISO-8859-1")
+df_positions = pd.read_csv("positions.csv", encoding="ISO-8859-1")
+df_salary = pd.read_csv("salary.csv", encoding="ISO-8859-1")
 
-# 1. Import danych do tabeli wymiarów: departments
-unique_departments = df[['Department']].drop_duplicates()
+# Debug: Wyświetl pierwsze kilka wierszy DataFrame
+print("Employees DataFrame:")
+print(df_employees.head())
 
-for index, row in unique_departments.iterrows():
+# 2. Import danych do tabeli departments
+for index, row in df_departments.iterrows():
     cursor.execute("""
-        INSERT INTO departments (department_name) 
-        VALUES (:department_name)
-    """, [row['Department']])
+        INSERT INTO departments (department_name, business_unit) 
+        VALUES (:department_name, :business_unit)
+    """, [row['department_name'], row['business_unit']])
 
-# 2. Import danych do tabeli wymiarów: job_titles
-unique_job_titles = df[['Job Title']].drop_duplicates()
+connection.commit()  # Zatwierdź zmiany w tabeli departments
 
-for index, row in unique_job_titles.iterrows():
+# 3. Import danych do tabeli positions
+for index, row in df_positions.iterrows():
     cursor.execute("""
-        INSERT INTO job_titles (job_title) 
+        INSERT INTO positions (job_title) 
         VALUES (:job_title)
-    """, [row['Job Title']])
+    """, [row['job_title']])
 
-# Pobranie zaktualizowanych danych z tabeli departments i job_titles
-connection.commit()
+connection.commit()  # Zatwierdź zmiany w tabeli positions
 
-# 3. Import danych do tabeli employees
-for index, row in df.iterrows():
-    # Pobierz ID departamentu
+# 5. Import danych do tabeli salary
+for index, row in df_salary.iterrows():
     cursor.execute("""
-        SELECT department_id FROM departments WHERE department_name = :department_name
-    """, [row['Department']])
-    department_id = cursor.fetchone()[0]
-    
-    # Pobierz ID stanowiska
-    cursor.execute("""
-        SELECT job_title_id FROM job_titles WHERE job_title = :job_title
-    """, [row['Job Title']])
-    job_title_id = cursor.fetchone()[0]
+        INSERT INTO salary (annual_salary, bonus_percent) 
+        VALUES (:annual_salary, :bonus_percent)
+    """, [row['annual_salary'], row['bonus_percent']])
 
-    # Wstaw dane do tabeli employees (bez wynagrodzeń i bonusów)
-    cursor.execute("""
-        INSERT INTO employees (employee_id, full_name, department_id, job_title_id, gender, ethnicity, age, hire_date, country, city, exit_date)
-        VALUES (:employee_id, :full_name, :department_id, :job_title_id, :gender, :ethnicity, :age, :hire_date, :country, :city, :exit_date)
-    """, [
-        row['Employee ID'], row['Full Name'], department_id, job_title_id, row['Gender'], 
-        row['Ethnicity'], row['Age'], row['Hire Date'], row['Country'], row['City'], row['Exit Date']
-    ])
+connection.commit()  # Zatwierdź zmiany w tabeli salary
 
-# 4. Import danych do tabeli salaries
-for index, row in df.iterrows():
-    # Wstaw dane do tabeli salaries
-    cursor.execute("""
-        INSERT INTO salaries (employee_id, annual_salary, bonus_percent, effective_date)
-        VALUES (:employee_id, :annual_salary, :bonus_percent, :effective_date)
-    """, [
-        row['Employee ID'], row['Annual Salary'], row['Bonus %'], row['Hire Date']
-    ])
+# 4. Import danych do tabeli employees
+for index, row in df_employees.iterrows():
+    try:
+        # Debug: Sprawdzenie wartości ID
+        print(f"Inserting row {index}: {row}")
 
-# Zatwierdzenie wszystkich operacji
-connection.commit()
+        # Upewnij się, że id są poprawne i nie są NaN
+        department_id = int(row['department_id']) if pd.notna(row['department_id']) else None
+        position_id = int(row['position_id']) if pd.notna(row['position_id']) else None
+        salary_id = int(row['salary_id']) if pd.notna(row['salary_id']) else None
+
+        # Debug: Sprawdź wartości przed wstawieniem
+        print(f"department_id: {department_id}, position_id: {position_id}, salary_id: {salary_id}")
+
+        # Sprawdź, czy klucze obce istnieją
+        cursor.execute("SELECT COUNT(*) FROM departments WHERE department_id = :id", [department_id])
+        if cursor.fetchone()[0] == 0:
+            print(f"Department ID {department_id} does not exist. Skipping row {index}.")
+            continue
+
+        cursor.execute("SELECT COUNT(*) FROM positions WHERE position_id = :id", [position_id])
+        if cursor.fetchone()[0] == 0:
+            print(f"Position ID {position_id} does not exist. Skipping row {index}.")
+            continue
+
+        cursor.execute("SELECT COUNT(*) FROM salary WHERE salary_id = :id", [salary_id])
+        if cursor.fetchone()[0] == 0:
+            print(f"Salary ID {salary_id} does not exist. Skipping row {index}.")
+            continue
+
+        cursor.execute("""
+            INSERT INTO employees (first_name, last_name, age, gender, hire_date, termination_date, 
+                    department_id, position_id, salary_id)
+            VALUES (:first_name, :last_name, :age, :gender, 
+                    TO_DATE(:hire_date, 'YYYY-MM-DD'), 
+                    TO_DATE(:termination_date, 'YYYY-MM-DD'), 
+                    :department_id, :position_id, :salary_id)
+        """, [
+            row['first_name'], row['last_name'], row['age'], row['gender'], 
+            row['hire_date'], row['termination_date'], 
+            department_id, position_id, salary_id  # Wstaw wartości jako int
+        ])
+    except cx_Oracle.DatabaseError as e:
+        print(f"Error inserting row {index}: {row}. Error: {str(e)}")
+
+connection.commit()  # Zatwierdź zmiany w tabeli employees
 
 # Zamknięcie połączenia z bazą danych
 cursor.close()
