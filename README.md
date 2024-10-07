@@ -7,9 +7,9 @@ The **HR Data Analytics** project aims to provide insights into employee data us
 ## Key Features
 
 - **Star Schema Design**: The database is structured using a star schema, ensuring efficient querying and reporting.
-- **Data Import**: Automated scripts for importing employee data from CSV files into the database.
-- **Data Analysis**: Utilize Python scripts to analyze employee trends, such as salary distribution, demographics, and turnover rates.
-- **Visualizations**: Integration with data visualization tools to represent insights in an understandable format.
+- **Data Import**: Automated scripts for importing employee data from CSV files into the database. #in progress
+- **Data Analysis**: Utilize Python scripts to analyze employee trends, such as salary distribution, demographics, and turnover rates. #in progress
+- **Visualizations**: Integration with data visualization tools to represent insights in an understandable format. #in progress
 
 ## Technologies Used
 
