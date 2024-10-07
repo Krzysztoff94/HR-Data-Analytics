@@ -30,25 +30,3 @@ CREATE TABLE salary (
     annual_salary NUMBER,
     bonus_percent NUMBER
 );
-
-CREATE SEQUENCE employee_id_seq
-START WITH 1
-INCREMENT BY 1
-NOCACHE;
-
-CREATE OR REPLACE TRIGGER trg_employees_before_insert
-BEFORE INSERT ON employees
-FOR EACH ROW
-BEGIN
-    :NEW.employee_id := employee_id_seq.NEXTVAL;
-END;
-/
-
-select * from salary
-/
-DELETE FROM departments;
-DELETE FROM salary;
-DELETE FROM positions;
-
-
-commit;
